@@ -1,0 +1,355 @@
+---
+title: "STA445_Assignment4"
+author: "Bailey Rosato"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(knitr)
+library(readxl)
+```
+
+## Question 1 
+    
+1.  A common task is to take a set of data that has multiple categorical 
+    variables and create a table of the number of cases for each combination.
+    An introductory statistics textbook contains a dataset summarizing student
+    surveys from several sections of an intro class. The two variables of
+    interest for us are `Gender` and `Year` which are the students gender and
+    year in college.
+    a)  Download the dataset and correctly order the `Year` variable using the
+        following:
+```{r}
+      Survey <- read.csv('https://www.lock5stat.com/datasets3e/StudentSurvey.csv', na.strings=c('',' '))  
+#Survey
+```
+    b)  Using some combination of `dplyr` functions, produce a data set with
+        eight rows that contains the number of responses for each gender:year
+        combination. Make sure your table orders the `Year` variable in the
+        correct order of `First Year`, `Sophmore`, `Junior`, and then `Senior`.
+        *You might want to look at the following functions: `dplyr::count` and*
+        *`dplyr::drop_na`.* 
+```{r}
+#?dplyr::count
+#?dplyr::drop_na
+Survey.1 <- Survey %>% group_by(Year) %>% count(Sex) %>% drop_na(Sex,Year) %>% 
+            arrange( Year = fct_relevel(Year, 'FirstYear', 'Sophomore','Junior','Senior'))
+
+Survey.1
+```
+        
+    c)  Using `tidyr` commands, produce a table of the number of responses in
+        the following form:
+        
+        |   Gender    |  First Year  |  Sophmore  |  Junior   |  Senior   |
+        |:-----------:|:------------:|:----------:|:---------:|:---------:|
+        |  **Female** |              |            |           |           |  
+        |  **Male**   |              |            |           |           | 
+
+```{r}
+Survey.2 <- Survey.1 %>% pivot_wider(names_from = 'Year', values_from = 'n') %>% 
+             mutate(Sex = recode(Sex, 'F' = 'Female', 'M' = 'Male'))
+            
+Survey.2   
+
+
+```
+
+## Question 2 
+<!-- Question 2. Retain only 2001 to 2015 when reshaping the data, this will save some headache. As a note,
+we can use ‘nibs’ (the character on the tilda key we use to open an R block) around a column name to
+identify it correctly. This will be important to identify the columns, such as ‘2015‘, since the column name
+starts with a number. --> 
+
+2.  From the book website, there is a .csv file of the daily maximum temperature
+    in Flagstaff at the Pulliam Airport. The direction link is at:
+    [https://raw.githubusercontent.com/dereksonderegger/444/master/data-raw/FlagMaxTemp.csv](https://raw.githubusercontent.com/dereksonderegger/444/master/data-raw/FlagMaxTemp.csv)
+    a)  Create a line graph that gives the daily maximum temperature for 2005.
+        *Make sure the x-axis is a date and covers the whole year.*
+```{r}
+TempSurvey <- read.csv('https://raw.githubusercontent.com/dereksonderegger/444/master/data-raw/FlagMaxTemp.csv', 
+                       na.strings=c('', ' '))
+
+
+TempSurvey.2 <- TempSurvey %>% filter(str_detect(Year, "2005")) %>% 
+                pivot_longer(X1:X31, names_to='Day', values_to='MaxTemp')
+
+TempSurvey.3<-  TempSurvey.2 %>% mutate(Day = str_replace_all(Day, "X", "")) %>% 
+                mutate(Date = as.Date(paste(Year, Month, Day, sep='-')))
+                
+TempSurvey.4 <- TempSurvey.3 %>% mutate(MaxTemp = as.numeric(MaxTemp)) %>% drop_na()
+
+TempSurvey.5 <- TempSurvey.4 %>% 
+                ggplot(aes(x=Date, y=MaxTemp)) + geom_line() + 
+                labs(x="Date", y="Maximum Temperature")
+
+TempSurvey.5
+  
+
+
+```
+
+    b)  Create a line graph that gives the monthly average maximum temperature
+        for 2013 - 2015. *Again the x-axis should be the date and the axis*
+        *spans 3 years.*
+
+```{r}
+TempSurveyAvg <- TempSurvey %>% 
+                 filter(Year >= 2013 & Year <= 2015) %>%
+                 pivot_longer(X1:X31,names_to = 'Day', values_to = 'MaxTemp') %>%
+                 mutate(MaxTemp = as.numeric(MaxTemp)) %>%  
+                 drop_na() %>% 
+                 group_by(Year, Month) %>%
+                 summarise(AvgMaxTemp = mean(MaxTemp, na.rm = TRUE)) %>% 
+                 ggplot(aes(x = as.Date(paste(Year, Month, "01", sep = "-")), 
+                            y = AvgMaxTemp)) +
+                 geom_line() + geom_point() +
+                 labs(x = "Date", y = "Average Max Temperature") 
+              
+TempSurveyAvg
+```
+
+
+
+## Question 4
+<!--Question 4. Focus more on the joins than the cbind. I was unable to get cbind to work in some areas
+without a lot of difficulty.-->
+
+4. For this problem we will consider two simple data sets.
+    ```{r}
+    A <- tribble(
+      ~Name, ~Car,
+      'Alice', 'Ford F150',
+      'Bob',   'Tesla Model III',
+      'Charlie', 'VW Bug')
+    
+    B <- tribble(
+      ~First.Name, ~Pet,
+      'Bob',  'Cat',
+      'Charlie', 'Dog',
+      'Alice', 'Rabbit')
+    ```
+    a)  Squish the data frames together to generate a data set with three rows
+        and three columns. Do two ways: first using `cbind` and then using one
+        of the `dplyr` `join` commands.
+        
+```{r}
+combinedData <- cbind(A,B)
+
+finalCombinedData <- inner_join(A, B, by = c("Name" = "First.Name"))
+
+finalCombinedData
+```
+
+    b)  It turns out that Alice also has a pet guinea pig. Add another row to
+        the `B` data set. Do this using either the base function `rbind`, or
+        either of the `dplyr` functions `add_row` or `bind_rows`.
+        
+```{r}
+
+new_row <- data.frame(First.Name = "Alice", Pet = "Guinea Pig")
+
+B <- rbind(B, new_row)
+
+# i accidentally added too many rows when testing! whoops
+B <- B %>%  distinct()
+
+B
+```
+
+    c)  Squish the `A` and `B` data sets together to generate a data set with
+        four rows and three columns. Do this two ways: first using `cbind` and
+        then using one of the `dplyr` `join` commands. Which was easier to
+        program? Which is more likely to have an error.
+
+```{r}
+#combinedData <- cbind(A,B)
+
+finalCombinedData <- inner_join(A, B, by = c("Name" = "First.Name"))
+
+finalCombinedData
+```
+It was easier to program the cbind() function, however it is more prone to error
+because it does not know how to handle the mismatched size of the table. Using 
+the join function was more functional but took more work. 
+
+## Question 5 
+5.  Data table joins are extremely common because effective database design
+    almost always involves having multiple tables for different types of objects.
+    To illustrate both the table joins and the usefulness of multiple tables we
+    will develop a set of data frames that will represent a credit card company's
+    customer data base. We will have tables for Customers, Retailers, Cards, and
+    Transactions.  Below is code that will create and populate these tables.
+    ```{r}
+    Customers <- tribble(
+      ~PersonID, ~Name, ~Street, ~City, ~State,
+      1, 'Derek Sonderegger',  '231 River Run', 'Flagstaff', 'AZ',
+      2, 'Aubrey Sonderegger', '231 River Run', 'Flagstaff', 'AZ',
+      3, 'Robert Buscaglia', '754 Forest Heights', 'Flagstaff', 'AZ',
+      4, 'Roy St Laurent', '845 Elk View', 'Flagstaff', 'AZ')
+    
+    Retailers <- tribble(
+      ~RetailID, ~Name, ~Street, ~City, ~State,
+      1, 'Kickstand Kafe', '719 N Humphreys St', 'Flagstaff', 'AZ',
+      2, 'MartAnnes', '112 E Route 66', 'Flagstaff', 'AZ',
+      3, 'REI', '323 S Windsor Ln', 'Flagstaff', 'AZ' )
+    
+    Cards <- tribble(
+      ~CardID, ~PersonID, ~Issue_DateTime, ~Exp_DateTime,
+      '9876768717278723',  1,  '2019-9-20 0:00:00', '2022-9-20 0:00:00',
+      '5628927579821287',  2,  '2019-9-20 0:00:00', '2022-9-20 0:00:00',
+      '7295825498122734',  3,  '2019-9-28 0:00:00', '2022-9-28 0:00:00',
+      '8723768965231926',  4,  '2019-9-30 0:00:00', '2022-9-30 0:00:00' ) 
+    
+    Transactions <- tribble(
+      ~CardID, ~RetailID, ~DateTime, ~Amount,
+      '9876768717278723', 1, '2019-10-1 8:31:23',    5.68,
+      '7295825498122734', 2, '2019-10-1 12:45:45',  25.67,
+      '9876768717278723', 1, '2019-10-2 8:26:31',    5.68,
+      '9876768717278723', 1, '2019-10-2 8:30:09',    9.23,
+      '5628927579821287', 3, '2019-10-5 18:58:57',  68.54,
+      '7295825498122734', 2, '2019-10-5 12:39:26',  31.84,
+      '8723768965231926', 2, '2019-10-10 19:02:20', 42.83) 
+    
+    Cards <- Cards %>% 
+      mutate( Issue_DateTime = lubridate::ymd_hms(Issue_DateTime),
+              Exp_DateTime   = lubridate::ymd_hms(Exp_DateTime) )
+    Transactions <- Transactions %>% 
+      mutate( DateTime = lubridate::ymd_hms(DateTime))
+    ```
+    a)  Create a table that gives the credit card statement for Derek. It should
+        give all the transactions, the amounts, and the store name. Write your
+        code as if the only initial information you have is the customer's name.
+        *Hint: Do a bunch of table joins, and then filter for the desired customer*
+        *name. To be efficient, do the filtering first and then do the table joins.*
+        
+```{r}
+DerekStatement <- Customers %>% filter(Name == 'Derek Sonderegger') %>% 
+                  left_join(Cards, by = 'PersonID') %>% 
+                  left_join(Transactions, by = 'CardID') %>% 
+                  left_join(Retailers, by = 'RetailID') %>%  
+                  select(DateTime, Amount, Name.y)
+
+DerekStatement
+```
+
+    b)  Aubrey has lost her credit card on Oct 15, 2019. Close her credit card at
+        4:28:21 PM and issue her a new credit card in the `Cards` table.
+        *Hint: Using the Aubrey's name, get necessary CardID and PersonID and save*
+        *those as `cardID` and `personID`. Then update the `Cards` table row that*
+        *corresponds to the `cardID` so that the expiration date is set to the time*
+        *that the card is closed. Then insert a new row with the `personID` for*
+        *Aubrey and a new `CardID` number that you make up.* 
+
+```{r}
+AubreyCard <- Customers %>%
+              filter(Name == 'Aubrey Sonderegger') %>%
+              inner_join(Cards, by = 'PersonID')
+AubreyCard
+
+personID <- AubreyCard$PersonID
+cardID <- AubreyCard$CardID
+
+Cards <- Cards %>%
+         mutate(Exp_DateTime = ifelse(CardID == cardID, 
+         "2019-10-15 16:28:21", Exp_DateTime))
+
+new_card_row <- data.frame(PersonID = personID, CardID = '5628927579821288', 
+                            Issue_DateTime = '2019-10-16 12:30:00', 
+                            Exp_DateTime = '2022-9-20 0:00:00')
+
+Cards <- rbind(Cards, new_card_row)
+
+Cards <- Cards %>%  distinct()
+
+Cards
+
+
+```
+
+    c)  Aubrey is using her new card at Kickstand Kafe on Oct 16, 2019 at
+        2:30:21 PM for coffee with a charge of $4.98. Generate a new transaction
+        for this action. 
+        *Hint: create temporary variables `card`,`retailid`,`datetime`, and*
+        *`amount` that contain the information for this transaction and then*
+        *write your code to use those. This way in the next question you can just*
+        *use the same code but modify the temporary variables. Alternatively, you*
+        *could write a function that takes in these four values and manipulates the*
+        *tables in the GLOBAL environment using the `<<-` command to assign a result*
+        *to a variable defined in the global environment. The reason this is OK is*
+        *that in a real situation, these data would be stored in a database and we*
+        *would expect the function to update that database.*
+  
+```{r}
+card <- '5628927579821288'
+retailid <- 1
+datetime <- '2019-10-16 14:30:21'
+amount <- 4.98
+
+# ~CardID, ~RetailID, ~DateTime, ~Amount,
+
+Valid_Cards <- Cards %>% 
+              filter(CardID == card, 
+                     Issue_DateTime <= datetime, datetime <= Exp_DateTime)
+
+Valid_Cards
+        
+# If the transaction is valid, insert the transaction into the table
+if( nrow(Valid_Cards) == 1){
+  new_transaction_row <- data.frame(CardID = card, RetailID = retailid, 
+                                  DateTime = datetime, Amount = amount)
+
+  Transactions <- rbind(Transactions, new_transaction_row)
+}else{
+  print('Card Denied')
+}
+
+Transactions <- Transactions %>%  distinct()
+
+Transactions
+```
+
+    d)  On Oct 17, 2019, some nefarious person is trying to use her OLD credit
+        card at REI. Make sure your code in part (c) first checks to see if the
+        credit card is active before creating a new transaction. Using the same
+        code, verify that the nefarious transaction at REI is denied.
+        *Hint: your check ought to look something like this:*
+```{r}
+        card <- '5628927579821287'
+        retailid <- 2
+        datetime <- '2019-10-16 14:30:21'
+        amount <- 4.98
+        
+Valid_Cards <- Cards %>% 
+              filter(CardID == card, 
+                     Issue_DateTime <= datetime, datetime <= Exp_DateTime)
+        
+# If the transaction is valid, insert the transaction into the table
+if( nrow(Valid_Cards) == 1){
+  new_transaction_row <- data.frame(CardID = card, RetailID = retailid, 
+                                    DateTime = datetime, Amount = amount)
+
+  Transactions <- rbind(Transactions, new_transaction_row)
+}else{
+  print('Card Denied')
+}
+```
+        
+
+    e)  Generate a table that gives the credit card statement for Aubrey. It
+        should give all the transactions, amounts, and retailer name for both
+        credit cards she had during this period.
+        
+```{r}
+AubreyStatement <- Customers %>% filter(Name == 'Aubrey Sonderegger') %>% 
+                  left_join(Cards, by = 'PersonID') %>% 
+                  left_join(Transactions, by = 'CardID') %>%  
+                  left_join(Retailers, by = 'RetailID')  %>% 
+                  select(CardID,DateTime, Amount, Name.y)
+
+AubreyStatement
+```
+
