@@ -1,2 +1,7 @@
 # MyFirstRepository
-STA445 GitHub Assignment 6 
+
+## Bailey Rosato
+
+### STA445
+
+GitHub Practice, Assignment #6 
